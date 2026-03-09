@@ -1,0 +1,13 @@
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+PyWhatKit_DB.txt
+*.log
+.DS_Store
+contatos/*.xlsx
+contatos/*.xls
+contatos/*.csv
+!contatos/exemplo.csv
