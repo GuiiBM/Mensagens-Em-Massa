@@ -11,3 +11,5 @@ contatos/*.xlsx
 contatos/*.xls
 contatos/*.csv
 !contatos/exemplo.csv
+mensagens/*.txt
+!mensagens/exemplo.txt

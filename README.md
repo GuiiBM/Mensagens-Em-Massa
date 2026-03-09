@@ -1,6 +1,6 @@
 # Mensagens Em Massa - WhatsApp
 
-Sistema para envio de mensagens em massa via WhatsApp com suporte a números internacionais e leitura de arquivos.
+Sistema para envio de mensagens em massa via WhatsApp Web usando Selenium (rápido e confiável).
 
 ## Instalação Automática
 
@@ -11,8 +11,8 @@ python3 install.py
 
 O instalador irá:
 - Detectar seu sistema operacional
-- Instalar todas as dependências automaticamente
-- Criar a pasta `contatos/` para seus arquivos
+- Instalar todas as dependências (Selenium, pandas, openpyxl)
+- Criar as pastas `contatos/` e `mensagens/`
 
 ## Instalação Manual
 
@@ -27,23 +27,23 @@ Execute:
 python3 app.py
 ```
 
-### Envio de mensagens:
+### Fluxo:
 
-**[1] Digitar manualmente** - Digite um número com código do país
+1. **Escolha origem dos números:**
+   - [1] Digitar manualmente
+   - [2] Ler de arquivo Excel/CSV
 
-**[2] Ler de arquivo** - Carrega números de Excel/CSV
-- Coloque arquivos `.xlsx`, `.xls` ou `.csv` na pasta `contatos/`
-- O sistema detecta automaticamente a coluna com números
-- Envia para todos os números do arquivo individualmente
+2. **Escolha a mensagem:**
+   - [1] Digitar agora
+   - [2] Usar mensagem salva (.txt)
 
-### Agendamento:
+3. **Escaneie QR Code** (20 segundos)
 
-- **[Enter]** Enviar agora (daqui a 2 minutos)
-- **[1]** Escolher horário específico
+4. **Envio automático** - Rápido e sequencial!
 
 ## Formato dos arquivos
 
-**CSV:**
+### Contatos (CSV):
 ```csv
 numero
 5512999999999
@@ -51,20 +51,34 @@ numero
 351912345678
 ```
 
-**Excel:**
+### Contatos (Excel):
 | numero | nome |
 |--------|------|
 | 5512999999999 | João |
 | 351912345678 | Maria |
 
+### Mensagens (.txt):
+```
+Olá! 👋
+
+Tudo bem?
+
+Mensagem com *formatação* mantida.
+
+Atenciosamente,
+Equipe
+```
+
 ## Funcionalidades
 
-- ✅ Suporte a números internacionais (qualquer país)
-- ✅ Formatação automática com código do país
+- ✅ **Envio RÁPIDO** - ~5 segundos por mensagem
+- ✅ Suporte a números internacionais
+- ✅ Formatação automática de números brasileiros
 - ✅ Leitura de Excel/CSV
-- ✅ Envio em massa individual (2 min entre cada)
-- ✅ Agendamento flexível
-- ✅ Detecção automática de coluna com números
+- ✅ Mensagens salvas em .txt
+- ✅ Mantém formatação (negrito, itálico, emojis)
+- ✅ Uma única aba do navegador
+- ✅ Confiável e estável
 
 ## Estrutura
 
@@ -75,12 +89,26 @@ Mensagens-Em-Massa/
 ├── requirements.txt  # Dependências
 ├── contatos/         # Seus arquivos Excel/CSV
 │   └── exemplo.csv
+├── mensagens/        # Suas mensagens .txt
+│   └── exemplo.txt
 └── README.md
 ```
 
+## Vantagens desta solução
+
+- 🚀 **Rápido**: ~5 segundos por mensagem (não 2 minutos!)
+- 🎯 **Confiável**: Usa Selenium (controle direto do navegador)
+- 🔄 **Uma aba**: Não abre 500 abas
+- ✅ **Funciona**: Sem bugs de agendamento
+
 ## Observações
 
-- Mantenha o WhatsApp Web logado no navegador
-- Não feche o terminal durante o envio
-- Para números brasileiros: `5512999999999`
-- Para números internacionais: `351912345678` (Portugal), `1234567890` (EUA), etc.
+- Mantenha o WhatsApp Web logado
+- Escaneie o QR Code quando solicitado
+- Não feche o navegador durante o envio
+- Para números brasileiros: `12999999999` ou `11988888888`
+- Para números internacionais: `351912345678`, `1234567890`, etc.
+
+## Exemplo de uso
+
+10 mensagens = ~50 segundos (não 20 minutos!)

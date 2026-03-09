@@ -24,11 +24,12 @@ def main():
     
     # Cria pasta de contatos
     os.makedirs("contatos", exist_ok=True)
-    print("✅ Pasta 'contatos/' criada")
+    os.makedirs("mensagens", exist_ok=True)
+    print("✅ Pastas 'contatos/' e 'mensagens/' criadas")
     
     # Instala dependências
     print("\n📦 Instalando dependências...")
-    result = run_cmd(f"{sys.executable} -m pip install -q pywhatkit openpyxl pandas")
+    result = run_cmd(f"{sys.executable} -m pip install -q selenium openpyxl pandas")
     
     if result.returncode == 0:
         print("✅ Dependências instaladas")
