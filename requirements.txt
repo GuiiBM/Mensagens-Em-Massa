@@ -1,3 +1,6 @@
 selenium
 openpyxl
 pandas
+pyperclip
+Pillow
+pyautogui

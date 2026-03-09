@@ -4,10 +4,15 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver import ActionChains
 import time
 import re
 import os
 import urllib.parse
+from PIL import Image
+import io
+import pyautogui
+import subprocess
 
 def format_phone(number):
     """Formata número - detecta brasileiro automaticamente"""
@@ -26,6 +31,48 @@ def format_phone(number):
         return clean
     
     return clean
+
+def is_valid_phone(num_str):
+    """Valida se é um número de telefone válido"""
+    # Remove caracteres não numéricos
+    clean = ''.join(filter(str.isdigit, num_str))
+    
+    # Tamanho inválido
+    if len(clean) < 10 or len(clean) > 15:
+        return False
+    
+    # Ignora datas (padrões comuns)
+    # 01062025, 01/06/2025, 2025, etc
+    if len(clean) == 8 and (clean.startswith('0') or clean.startswith('1') or clean.startswith('2') or clean.startswith('3')):
+        # Pode ser data formato ddmmyyyy
+        day = int(clean[:2])
+        month = int(clean[2:4])
+        if 1 <= day <= 31 and 1 <= month <= 12:
+            return False
+    
+    # Ignora anos (2020-2099)
+    if len(clean) == 4 and clean.startswith('20'):
+        return False
+    
+    # Ignora CEP brasileiro (8 dígitos, padrão xxxxx-xxx)
+    if len(clean) == 8 and '-' in num_str:
+        return False
+    
+    # Número brasileiro: deve ter 10 ou 11 dígitos
+    if len(clean) == 10 or len(clean) == 11:
+        # DDD válido (11-99)
+        ddd = int(clean[:2])
+        if 11 <= ddd <= 99:
+            # Se tem 11 dígitos, terceiro deve ser 9 (celular)
+            if len(clean) == 11 and clean[2] != '9':
+                return False
+            return True
+    
+    # Número internacional: 12-15 dígitos
+    if 12 <= len(clean) <= 15:
+        return True
+    
+    return False
 
 def read_contacts(file_path):
     """Lê números de arquivo Excel/CSV - TODAS as células"""
@@ -54,12 +101,11 @@ def read_contacts(file_path):
         
         numbers = []
         seen_numbers = set()
-        cells_checked = 0
+        ignored_count = 0
         
-        # Varre TODAS as células - linha por linha, coluna por coluna
+        # Varre TODAS as células
         for row_idx in range(total_rows):
             for col_idx in range(total_cols):
-                cells_checked += 1
                 try:
                     cell_value = df.iloc[row_idx, col_idx]
                     
@@ -67,34 +113,41 @@ def read_contacts(file_path):
                     if pd.isna(cell_value) or str(cell_value).strip() == '':
                         continue
                     
-                    # Converte para string e limpa
                     num_str = str(cell_value).strip()
-                    num_clean = num_str
                     
-                    # Remove todos os caracteres não numéricos
+                    # Valida se é telefone válido
+                    if not is_valid_phone(num_str):
+                        ignored_count += 1
+                        continue
+                    
+                    # Limpa o número
+                    num_clean = num_str
                     for char in [' ', '-', '(', ')', '+', '.', ',', '/', '\\']:
                         num_clean = num_clean.replace(char, '')
                     
-                    # Verifica se é número válido (mínimo 8 dígitos)
-                    if num_clean.isdigit() and len(num_clean) >= 8:
-                        formatted = format_phone(num_clean)
-                        
-                        # Evita duplicatas
-                        if formatted not in seen_numbers:
-                            seen_numbers.add(formatted)
-                            numbers.append(formatted)
-                            print(f"✅ [Linha {row_idx+1}, Coluna {col_idx+1}] '{num_str}' → +{formatted}")
-                        
+                    # Verifica se tem apenas dígitos
+                    if not num_clean.isdigit():
+                        ignored_count += 1
+                        continue
+                    
+                    formatted = format_phone(num_clean)
+                    
+                    # Evita duplicatas
+                    if formatted not in seen_numbers:
+                        seen_numbers.add(formatted)
+                        numbers.append(formatted)
+                        print(f"✅ [Linha {row_idx+1}, Coluna {col_idx+1}] '{num_str}' → +{formatted}")
+                    
                 except Exception as e:
                     continue
         
         print("="*60)
-        print(f"\n📊 Células verificadas: {cells_checked}/{total_cells}")
-        print(f"✅ Números únicos encontrados: {len(numbers)}\n")
+        print(f"📊 Valores ignorados (datas/CEP/inválidos): {ignored_count}")
+        print(f"✅ Números válidos encontrados: {len(numbers)}\n")
         
         if len(numbers) == 0:
-            print("⚠️  NENHUM número encontrado!")
-            print("Verifique se o arquivo contém números válidos (mínimo 8 dígitos)\n")
+            print("⚠️  NENHUM número válido encontrado!")
+            print("Verifique se o arquivo contém telefones válidos\n")
         
         return numbers
         
@@ -109,19 +162,22 @@ def get_message():
     print("\n💬 MENSAGEM:")
     print("[1] Digitar agora")
     print("[2] Usar mensagem salva (pasta mensagens/)")
+    print("[3] Enviar imagem (pasta imagens/)")
+    print("[4] Enviar imagem + texto digitado")
+    print("[5] Enviar imagem + texto salvo")
     escolha = input("\nEscolha: ").strip()
     
     if escolha == '2':
         if not os.path.exists('mensagens'):
             os.makedirs('mensagens')
             print("❌ Pasta 'mensagens/' vazia")
-            return None
+            return None, None
         
         files = [f for f in os.listdir('mensagens') if f.endswith('.txt')]
         
         if not files:
             print("❌ Nenhum arquivo .txt encontrado")
-            return None
+            return None, None
         
         print("\n📄 Mensagens disponíveis:")
         for i, f in enumerate(files, 1):
@@ -131,7 +187,7 @@ def get_message():
             idx = int(input("\nEscolha: ").strip()) - 1
             if idx < 0 or idx >= len(files):
                 print("❌ Opção inválida")
-                return None
+                return None, None
             file_path = os.path.join('mensagens', files[idx])
             
             with open(file_path, 'r', encoding='utf-8') as f:
@@ -139,33 +195,122 @@ def get_message():
             
             if not message:
                 print("❌ Arquivo vazio")
-                return None
+                return None, None
             
             print("\n📋 Mensagem carregada:")
             print("-" * 40)
             print(message)
             print("-" * 40)
-            return message
+            return message, None
         except ValueError:
             print("❌ Entrada inválida")
-            return None
+            return None, None
         except Exception as e:
             print(f"❌ Erro ao ler arquivo: {e}")
-            return None
+            return None, None
+    
+    elif escolha in ['3', '4', '5']:
+        if not os.path.exists('imagens'):
+            os.makedirs('imagens')
+            print("❌ Pasta 'imagens/' vazia")
+            return None, None
+        
+        files = [f for f in os.listdir('imagens') if f.lower().endswith(('.jpg', '.jpeg', '.png', '.gif', '.webp'))]
+        
+        if not files:
+            print("❌ Nenhuma imagem encontrada")
+            return None, None
+        
+        print("\n🖼️ Imagens disponíveis:")
+        for i, f in enumerate(files, 1):
+            print(f"[{i}] {f}")
+        
+        try:
+            idx = int(input("\nEscolha: ").strip()) - 1
+            if idx < 0 or idx >= len(files):
+                print("❌ Opção inválida")
+                return None, None
+            image_path = os.path.join('imagens', files[idx])
+            
+            # Opção 3: Só imagem
+            if escolha == '3':
+                return "", image_path
+            
+            # Opção 4: Imagem + texto digitado
+            elif escolha == '4':
+                msg = input("\n💬 Digite a legenda da imagem: ").strip()
+                return msg if msg else "", image_path
+            
+            # Opção 5: Imagem + texto salvo
+            else:
+                if not os.path.exists('mensagens'):
+                    os.makedirs('mensagens')
+                    print("❌ Pasta 'mensagens/' vazia")
+                    return None, None
+                
+                msg_files = [f for f in os.listdir('mensagens') if f.endswith('.txt')]
+                
+                if not msg_files:
+                    print("❌ Nenhum arquivo .txt encontrado")
+                    return None, None
+                
+                print("\n📄 Mensagens disponíveis:")
+                for i, f in enumerate(msg_files, 1):
+                    print(f"[{i}] {f}")
+                
+                msg_idx = int(input("\nEscolha: ").strip()) - 1
+                if msg_idx < 0 or msg_idx >= len(msg_files):
+                    print("❌ Opção inválida")
+                    return None, None
+                
+                msg_path = os.path.join('mensagens', msg_files[msg_idx])
+                with open(msg_path, 'r', encoding='utf-8') as f:
+                    message = f.read().strip()
+                
+                print("\n📋 Legenda carregada:")
+                print("-" * 40)
+                print(message)
+                print("-" * 40)
+                
+                return message if message else "", image_path
+                
+        except ValueError:
+            print("❌ Entrada inválida")
+            return None, None
+    
     else:
         msg = input("\n💬 Digite a mensagem: ").strip()
         if not msg:
             print("❌ Mensagem vazia")
-            return None
-        return msg
+            return None, None
+        return msg, None
 
-def send_whatsapp_messages(numbers, message):
+def send_whatsapp_messages(numbers, message, image_path=None):
     """Envia mensagens via WhatsApp Web usando Selenium"""
+    
+    # Se tem imagem, converte para PNG ANTES de abrir navegador
+    png_path = None
+    if image_path:
+        try:
+            from PIL import Image
+            abs_path = os.path.abspath(image_path)
+            
+            # Converte para PNG se necessário
+            if not abs_path.lower().endswith('.png'):
+                img = Image.open(abs_path)
+                png_path = abs_path.rsplit('.', 1)[0] + '_temp.png'
+                img.save(png_path, 'PNG')
+                print(f"✅ Imagem convertida para PNG")
+            else:
+                png_path = abs_path
+        except Exception as e:
+            print(f"❌ Erro ao converter imagem: {e}")
+            return
     
     print("\n🌐 Abrindo WhatsApp Web...")
     print("⚠️  Escaneie o QR Code e aguarde carregar completamente!\n")
     
-    # Configurar Chrome com perfil persistente
+    # Configurar Chrome
     chrome_options = Options()
     chrome_options.add_argument("--start-maximized")
     chrome_options.add_experimental_option("excludeSwitches", ["enable-logging"])
@@ -184,38 +329,124 @@ def send_whatsapp_messages(numbers, message):
         try:
             print(f"[{i}/{len(numbers)}] +{number}... ", end='', flush=True)
             
-            # Monta URL do WhatsApp
-            text = urllib.parse.quote(message)
-            url = f"https://web.whatsapp.com/send?phone={number}&text={text}"
-            
-            driver.get(url)
-            
-            # Aguarda carregar a conversa (reduzido para 2s)
-            time.sleep(2)
-            
-            # Tenta enviar
-            try:
-                # Procura botão de enviar
-                send_button = WebDriverWait(driver, 8).until(
-                    EC.element_to_be_clickable((By.XPATH, '//button[@aria-label="Enviar"]'))
-                )
-                send_button.click()
-                print("✅")
-                time.sleep(1)  # Reduzido para 1s
-            except:
-                # Alternativa: procura caixa de texto e pressiona Enter
+            # Se tem imagem
+            if png_path:
+                url = f"https://web.whatsapp.com/send?phone={number}"
+                driver.get(url)
+                
+                # AGUARDA PÁGINA CARREGAR COMPLETAMENTE
                 try:
-                    input_box = WebDriverWait(driver, 5).until(
+                    WebDriverWait(driver, 15).until(
                         EC.presence_of_element_located((By.XPATH, '//div[@contenteditable="true"][@data-tab="10"]'))
                     )
-                    input_box.send_keys(Keys.ENTER)
-                    print("✅")
-                    time.sleep(1)  # Reduzido para 1s
+                    time.sleep(3)
                 except:
-                    print("❌ Não enviado")
+                    print("❌ Timeout")
+                    continue
+                
+                try:
+                    # Procura inputs file
+                    inputs = driver.find_elements(By.XPATH, '//input[@type="file"]')
+                    
+                    if not inputs:
+                        print("❌ Sem inputs")
+                        continue
+                    
+                    # Procura o input que aceita VÍDEO (esse é o de IMAGEM, não figurinha)
+                    target_input = None
+                    for inp in inputs:
+                        accept = inp.get_attribute('accept') or ''
+                        if 'video' in accept.lower():
+                            target_input = inp
+                            break
+                    
+                    # Se não achou, usa o SEGUNDO input (geralmente figurinha é o primeiro)
+                    if not target_input and len(inputs) > 1:
+                        target_input = inputs[1]
+                    
+                    # Se ainda não achou, usa o primeiro
+                    if not target_input:
+                        target_input = inputs[0]
+                    
+                    target_input.send_keys(png_path)
+                    time.sleep(6)
+                    
+                    # Clica no botão enviar
+                    try:
+                        send_btn = WebDriverWait(driver, 10).until(
+                            EC.element_to_be_clickable((By.XPATH, '//span[@data-icon="send"]'))
+                        )
+                        send_btn.click()
+                    except:
+                        try:
+                            send_btn = driver.find_element(By.XPATH, '//div[@aria-label="Enviar"]')
+                            send_btn.click()
+                        except:
+                            pyautogui.press('enter')
+                    
+                    time.sleep(4)
+                    print("✅ (img) ", end='', flush=True)
+                    
+                    # Envia texto SEPARADO
+                    if message:
+                        time.sleep(2)
+                        text = urllib.parse.quote(message)
+                        driver.get(f"https://web.whatsapp.com/send?phone={number}&text={text}")
+                        time.sleep(3)
+                        
+                        try:
+                            send_text = WebDriverWait(driver, 8).until(
+                                EC.element_to_be_clickable((By.XPATH, '//button[@aria-label="Enviar"]'))
+                            )
+                            send_text.click()
+                        except:
+                            pyautogui.press('enter')
+                        
+                        print("✅ (txt)")
+                        time.sleep(2)
+                    else:
+                        print()
+                    
+                except Exception as e:
+                    print(f"❌ {str(e)[:80]}")
+            
+            # Se é só texto - fluxo rápido
+            else:
+                # Usa URL com texto pré-preenchido (mais rápido)
+                text = urllib.parse.quote(message)
+                url = f"https://web.whatsapp.com/send?phone={number}&text={text}"
+                driver.get(url)
+                time.sleep(2)
+                
+                try:
+                    # Procura botão de enviar
+                    send_button = WebDriverWait(driver, 8).until(
+                        EC.element_to_be_clickable((By.XPATH, '//button[@aria-label="Enviar"]'))
+                    )
+                    send_button.click()
+                    print("✅")
+                    time.sleep(1)
+                except:
+                    try:
+                        # Alternativa: pressiona Enter
+                        input_box = WebDriverWait(driver, 5).until(
+                            EC.presence_of_element_located((By.XPATH, '//div[@contenteditable="true"][@data-tab="10"]'))
+                        )
+                        input_box.send_keys(Keys.ENTER)
+                        print("✅")
+                        time.sleep(1)
+                    except:
+                        print("❌")
             
         except Exception as e:
-            print(f"❌ Erro: {e}")
+            print(f"❌ Erro geral: {str(e)[:50]}")
+    
+    # Remove arquivo temporário se foi criado
+    if png_path and '_temp.png' in png_path:
+        try:
+            os.remove(png_path)
+        except:
+            pass
     
     print("\n✅ Processo concluído!")
     print("Pressione ENTER para fechar o navegador...")
@@ -275,13 +506,13 @@ def main():
         return
     
     # Coleta mensagem
-    message = get_message()
-    if not message:
-        print("❌ Mensagem vazia")
+    message, image_path = get_message()
+    if message is None and image_path is None:
+        print("❌ Mensagem/imagem vazia")
         return
     
     # Envia mensagens
-    send_whatsapp_messages(numbers, message)
+    send_whatsapp_messages(numbers, message, image_path)
 
 if __name__ == "__main__":
     main()

@@ -12,7 +12,7 @@ python3 install.py
 O instalador irá:
 - Detectar seu sistema operacional
 - Instalar todas as dependências (Selenium, pandas, openpyxl)
-- Criar as pastas `contatos/` e `mensagens/`
+- Criar as pastas `contatos/`, `mensagens/` e `imagens/`
 
 ## Instalação Manual
 
@@ -36,8 +36,10 @@ python3 app.py
 2. **Escolha a mensagem:**
    - [1] Digitar agora
    - [2] Usar mensagem salva (.txt)
+   - [3] Enviar imagem
+   - [4] Enviar imagem + texto (legenda)
 
-3. **Escaneie QR Code** (20 segundos)
+3. **Escaneie QR Code** e pressione ENTER
 
 4. **Envio automático** - Rápido e sequencial!
 
@@ -69,6 +71,9 @@ Atenciosamente,
 Equipe
 ```
 
+### Imagens:
+Coloque arquivos `.jpg`, `.png`, `.gif` ou `.webp` na pasta `imagens/`
+
 ## Funcionalidades
 
 - ✅ **Envio RÁPIDO** - ~5 segundos por mensagem
@@ -76,8 +81,11 @@ Equipe
 - ✅ Formatação automática de números brasileiros
 - ✅ Leitura de Excel/CSV
 - ✅ Mensagens salvas em .txt
+- ✅ **Envio de imagens**
+- ✅ **Imagens com legenda**
 - ✅ Mantém formatação (negrito, itálico, emojis)
 - ✅ Uma única aba do navegador
+- ✅ Filtra datas e CEPs automaticamente
 - ✅ Confiável e estável
 
 ## Estrutura
@@ -91,6 +99,8 @@ Mensagens-Em-Massa/
 │   └── exemplo.csv
 ├── mensagens/        # Suas mensagens .txt
 │   └── exemplo.txt
+├── imagens/          # Suas imagens
+│   └── .gitkeep
 └── README.md
 ```
 
@@ -100,6 +110,8 @@ Mensagens-Em-Massa/
 - 🎯 **Confiável**: Usa Selenium (controle direto do navegador)
 - 🔄 **Uma aba**: Não abre 500 abas
 - ✅ **Funciona**: Sem bugs de agendamento
+- 🖼️ **Imagens**: Envia fotos com ou sem legenda
+- 🛡️ **Filtros**: Ignora datas e CEPs automaticamente
 
 ## Observações
 
@@ -108,6 +120,7 @@ Mensagens-Em-Massa/
 - Não feche o navegador durante o envio
 - Para números brasileiros: `12999999999` ou `11988888888`
 - Para números internacionais: `351912345678`, `1234567890`, etc.
+- Imagens suportadas: JPG, PNG, GIF, WEBP
 
 ## Exemplo de uso
 

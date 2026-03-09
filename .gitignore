@@ -13,3 +13,5 @@ contatos/*.csv
 !contatos/exemplo.csv
 mensagens/*.txt
 !mensagens/exemplo.txt
+imagens/*
+!imagens/.gitkeep
