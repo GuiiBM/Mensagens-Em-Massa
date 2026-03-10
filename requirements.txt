@@ -4,3 +4,6 @@ pandas
 pyperclip
 Pillow
 pyautogui
+requests
+beautifulsoup4
+schedule
