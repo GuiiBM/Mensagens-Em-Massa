@@ -1,51 +1,100 @@
-# Mensagens Em Massa - WhatsApp
+# Massive OSINT & Communication Framework
 
-Sistema para envio de mensagens em massa via WhatsApp Web usando Selenium (rápido e confiável).
+> Automated intelligence collection and mass communication framework via WhatsApp Web — built for precision, speed and anti-bot evasion.
 
-## Instalação Automática
+---
 
-Execute o instalador:
+## Architecture Overview
+
+```
+Mensagens-Em-Massa/
+├── app.py              # WhatsApp automation engine (Selenium)
+├── scraper_all.py      # Multi-source OSINT intelligence collector
+├── install.py          # Automated dependency bootstrapper
+├── requirements.txt    # Dependency manifest
+├── contatos/           # Contact intelligence output (CSV/XLSX)
+├── mensagens/          # Message templates (.txt)
+└── imagens/            # Media payloads (JPG, PNG, GIF, WEBP)
+```
+
+---
+
+## Stack
+
+| Layer                   | Technology                         |
+| ----------------------- | ---------------------------------- |
+| Automation              | Selenium WebDriver + ChromeDriver  |
+| Intelligence Collection | Requests + BeautifulSoup4          |
+| Data Processing         | Pandas + Regex Engine (5 patterns) |
+| Media Processing        | Pillow (PNG normalization)         |
+| Input Simulation        | PyAutoGUI                          |
+| Data Ingestion          | openpyxl (Excel), CSV              |
+
+---
+
+## Quick Start
+
 ```bash
+# Bootstrap environment
 python3 install.py
-```
 
-O instalador irá:
-- Detectar seu sistema operacional
-- Instalar todas as dependências (Selenium, pandas, openpyxl)
-- Criar as pastas `contatos/`, `mensagens/` e `imagens/`
+# Run OSINT collector (Terminal 1)
+python3 scraper_all.py
 
-## Instalação Manual
-
-```bash
-pip install -r requirements.txt
-```
-
-## Como usar
-
-Execute:
-```bash
+# Run communication engine (Terminal 2)
 python3 app.py
 ```
 
-### Fluxo:
+---
 
-1. **Escolha origem dos números:**
-   - [1] Digitar manualmente
-   - [2] Ler de arquivo Excel/CSV
+## Module 1 — Communication Engine (`app.py`)
 
-2. **Escolha a mensagem:**
-   - [1] Digitar agora
-   - [2] Usar mensagem salva (.txt)
-   - [3] Enviar imagem
-   - [4] Enviar imagem + texto (legenda)
+Automates WhatsApp Web via Selenium with direct DOM manipulation, bypassing WhatsApp's standard API restrictions.
 
-3. **Escaneie QR Code** e pressione ENTER
+### Phone Number Validation Pipeline
 
-4. **Envio automático** - Rápido e sequencial!
+Multi-layer regex validation that filters noise from raw data:
 
-## Formato dos arquivos
+```
+Raw input → Strip non-digits → Length check (10–15) → Pattern match
+         → Reject: dates (ddmmyyyy), CEPs (xxxxx-xxx), years (20xx)
+         → Accept: BR mobile (11 digits, 3rd digit = 9), international (12–15)
+         → Format: auto-prefix 55 for Brazilian numbers
+```
 
-### Contatos (CSV):
+**Examples:**
+
+```
+"11999999999"   → "5511999999999"  ✅ BR mobile
+"351912345678"  → "351912345678"   ✅ International
+"01062025"      → rejected         ❌ Date pattern
+"12345-678"     → rejected         ❌ CEP pattern
+```
+
+### Delivery Modes & Throughput
+
+| Mode         | Process                               | Time/msg | Throughput   |
+| ------------ | ------------------------------------- | -------- | ------------ |
+| Text only    | URL pre-fill → click send            | ~3s      | ~20 msg/min  |
+| Image only   | file input injection → DOM click     | ~13s     | ~4.6 msg/min |
+| Image + Text | image send → URL reload → text send | ~18s     | ~3.3 msg/min |
+
+### Sending Flow
+
+```
+1. Load contact URL: web.whatsapp.com/send?phone={number}
+2. Wait for DOM: //div[@contenteditable="true"][@data-tab="10"]
+3. Inject file path into <input type="file"> (image mode)
+4. Wait for preview render (6s)
+5. Locate send button: //span[@data-icon="send"]
+6. Execute click → fallback to PyAutoGUI Enter
+7. Verify delivery → next contact
+```
+
+### Input Formats
+
+**CSV:**
+
 ```csv
 numero
 5512999999999
@@ -53,75 +102,64 @@ numero
 351912345678
 ```
 
-### Contatos (Excel):
-| numero | nome |
-|--------|------|
-| 5512999999999 | João |
-| 351912345678 | Maria |
+**Excel:** Any column, any sheet — the engine scans all cells.
 
-### Mensagens (.txt):
-```
-Olá! 👋
+---
 
-Tudo bem?
+## Module 2 — OSINT Collector (`scraper_all.py`)
 
-Mensagem com *formatação* mantida.
+Multi-source intelligence collector with dynamic term expansion. Scrapes 50+ public sources simultaneously, extracting phone numbers and emails using a 5-pattern regex engine.
 
-Atenciosamente,
-Equipe
-```
+→ Full documentation: [SCRAPER.md](SCRAPER.md)
 
-### Imagens:
-Coloque arquivos `.jpg`, `.png`, `.gif` ou `.webp` na pasta `imagens/`
+---
 
-## Funcionalidades
+## Phone Regex Engine
 
-- ✅ **Envio RÁPIDO** - ~5 segundos por mensagem
-- ✅ Suporte a números internacionais
-- ✅ Formatação automática de números brasileiros
-- ✅ Leitura de Excel/CSV
-- ✅ Mensagens salvas em .txt
-- ✅ **Envio de imagens**
-- ✅ **Imagens com legenda**
-- ✅ Mantém formatação (negrito, itálico, emojis)
-- ✅ Uma única aba do navegador
-- ✅ Filtra datas e CEPs automaticamente
-- ✅ Confiável e estável
+Five overlapping patterns ensure maximum extraction coverage:
 
-## Estrutura
-
-```
-Mensagens-Em-Massa/
-├── install.py         # Instalador automático
-├── app.py            # Aplicação principal
-├── requirements.txt  # Dependências
-├── contatos/         # Seus arquivos Excel/CSV
-│   └── exemplo.csv
-├── mensagens/        # Suas mensagens .txt
-│   └── exemplo.txt
-├── imagens/          # Suas imagens
-│   └── .gitkeep
-└── README.md
+```python
+r'\+?55\s*\(?\d{2}\)?\s*\d{4,5}-?\d{4}'   # BR formatted
+r'\(?\d{2}\)?\s*\d{4,5}-?\d{4}'             # BR unformatted
+r'(\d{2})(\d{4,5})(\d{4})'                  # Raw digits
+r'\b(\d{10,11})\b'                           # Boundary match
+r'(\d{2})\s*(\d{4,5})\s*(\d{4})'            # Space-separated
 ```
 
-## Vantagens desta solução
+---
 
-- 🚀 **Rápido**: ~5 segundos por mensagem (não 2 minutos!)
-- 🎯 **Confiável**: Usa Selenium (controle direto do navegador)
-- 🔄 **Uma aba**: Não abre 500 abas
-- ✅ **Funciona**: Sem bugs de agendamento
-- 🖼️ **Imagens**: Envia fotos com ou sem legenda
-- 🛡️ **Filtros**: Ignora datas e CEPs automaticamente
+## Anti-Bot Evasion
 
-## Observações
+- Randomized delays between requests (`0.2–0.8s`)
+- Realistic User-Agent header
+- Headless Chrome with `--disable-blink-features=AutomationControlled`
+- Sequential (not parallel) requests to avoid rate-limit triggers
+- DOM-based interaction instead of JavaScript injection where possible
 
-- Mantenha o WhatsApp Web logado
-- Escaneie o QR Code quando solicitado
-- Não feche o navegador durante o envio
-- Para números brasileiros: `12999999999` ou `11988888888`
-- Para números internacionais: `351912345678`, `1234567890`, etc.
-- Imagens suportadas: JPG, PNG, GIF, WEBP
+---
 
-## Exemplo de uso
+## Data Output
 
-10 mensagens = ~50 segundos (não 20 minutos!)
+`contatos/merged.csv` — deduplicated, persistent across sessions:
+
+```csv
+numero,nome,email,fonte,data
+5512999999999,Target Name,contact@domain.com,Google Maps,2025-01-15
+```
+
+---
+
+## Operational Notes
+
+- No API keys required — operates entirely on public web interfaces
+- Local-first: zero data leaves the machine
+- WhatsApp session persists via Chrome profile (no repeated QR scans)
+- Ctrl+C triggers graceful shutdown with data flush
+- Excel files: all sheets, all columns scanned automatically
+
+
+---
+
+## Ethical Use e Disclaimer
+
+* This project was developed for educational and automation research purposes. The author is not responsible for any misuse of the tool for spamming or violation of terms of service

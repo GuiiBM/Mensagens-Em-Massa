@@ -1,139 +1,203 @@
-# 🤖 Web Scraper - Busca Brutal com Crescimento Dinâmico
+# OSINT Collector — Technical Reference
 
-Sistema de web scraping com busca brutal em 50+ fontes e termos que crescem a cada iteração.
+> Multi-source intelligence scraper with dynamic term expansion, 5-pattern regex extraction and infinite iteration loop.
 
-## 🚀 Instalação e Uso
+---
 
-```bash
-# Instalar
-python3 install.py
-
-# Executar (busca brutal infinita)
-python3 scraper_all.py
-```
-
-## ✨ Características
-
-✅ **50+ fontes de coleta** - Máxima cobertura
-✅ **Arquivo único permanente** - `contatos/merged.csv`
-✅ **Busca brutal** - Delays mínimos (0.2-0.8s)
-✅ **Crescimento dinâmico** - +2 termos a cada iteração
-✅ **Termos correlatos automáticos** - Busca por temas relacionados
-✅ **Busca infinita** - Continua enquanto ativo
-✅ **Parada imediata** - Ctrl+C para parar
-✅ **Sem duplicatas** - Cada número aparece uma vez
-✅ **Atualização em tempo real** - Salva cada novo contato
-
-## 📊 Crescimento Dinâmico de Termos
-
-A cada iteração, o scraper adiciona +2 novos termos correlatos:
+## How It Works
 
 ```
-Iteração 1: 10 termos
-Iteração 2: 12 termos
-Iteração 3: 14 termos
-Iteração 4: 16 termos
-Iteração 5: 18 termos
+User input: "restaurante"
+     │
+     ▼
+CORRELATE_DB lookup
+     │
+     ├─ Match found → use ONLY correlate terms (not concatenated)
+     │   "restaurante" → ["comida", "pizza", "burger", "sushi", ...]
+     │
+     └─ No match → generate term variations
+         "termo" → ["termo", "termo online", "melhor termo", ...]
+     │
+     ▼
+For each term × 50+ sources:
+     │
+     ├─ HTTP request (requests) → parse HTML → regex extraction
+     └─ Selenium (JS-heavy sites) → scroll → parse → regex extraction
+     │
+     ▼
+Phone/email extracted → validate → deduplicate → append to merged.csv
+     │
+     ▼
+Next iteration: +2 new terms → repeat
+```
+
+---
+
+## Dynamic Term Expansion
+
+Each iteration unlocks 2 additional correlate terms:
+
+```
+Iteration 1:  10 terms
+Iteration 2:  12 terms  (+2)
+Iteration 3:  14 terms  (+2)
+Iteration N:  10 + (N×2) terms
+```
+
+**Example — "restaurante":**
+```
+Iter 1: comida, pizza, burger, sushi, churrascaria, café, bar, lanchonete, padaria, confeitaria
+Iter 2: + sorveteria, choperia
+Iter 3: + boteco, cantina
+Iter 4: + pizzaria, rodízio
 ...
 ```
 
-**Exemplo com "restaurante":**
-- Iteração 1: restaurante, comida, pizza, burger, sushi, churrascaria, café, bar, lanchonete, padaria
-- Iteração 2: + confeitaria, sorveteria
-- Iteração 3: + choperia, boteco
-- Iteração 4: + cantina, pizzaria
-- Iteração 5: + rodízio, buffet
-- ...
+---
 
-## 📁 Arquivo Único
+## Regex Extraction Engine
 
-`contatos/merged.csv` - Todos os contatos:
+Five patterns cover all common phone formats found in the wild:
+
+```python
+r'\+?55\s*\(?\d{2}\)?\s*\d{4,5}-?\d{4}'   # +55 (11) 99999-9999
+r'\(?\d{2}\)?\s*\d{4,5}-?\d{4}'             # (11) 99999-9999
+r'(\d{2})(\d{4,5})(\d{4})'                  # 11999999999
+r'\b(\d{10,11})\b'                           # boundary-anchored
+r'(\d{2})\s*(\d{4,5})\s*(\d{4})'            # 11 99999 9999
+```
+
+Deduplication is handled at extraction time via a `set()` keyed on the cleaned number string.
+
+---
+
+## Source Coverage (50+)
+
+**Brazilian Marketplaces**
+Mercado Livre, OLX, Classificados, Vivanuncios, Anúncios
+
+**Business Directories**
+Google, Google Maps, Yellow Pages, Yelp, SuperPages, MerchantCircle, Thumbtack, HomeAdvisor
+
+**Professional Networks**
+LinkedIn, LinkedIn Companies
+
+**Social / Content**
+Twitter, Reddit, Quora, Medium, Tumblr, Pinterest, Flickr, Imgur
+
+**Developer Platforms**
+GitHub, Stack Overflow, Dev.to, Hashnode
+
+**Creative Platforms**
+Behance, Dribbble, DeviantArt, ArtStation, WeHeartIt
+
+**Video Platforms**
+Vimeo, Dailymotion, Twitch, Rumble, Odysee, BitChute
+
+**Decentralized**
+Minds, Mastodon
+
+**Real Estate**
+Zillow, Realtor, Trulia, Apartments
+
+**Classifieds**
+Craigslist, Letgo
+
+---
+
+## Category Intelligence Database
+
+```python
+CORRELATE_DB = {
+    'restaurante': ['comida', 'pizza', 'burger', 'sushi', 'churrascaria', ...],
+    'clínica':     ['médico', 'dentista', 'hospital', 'farmácia', ...],
+    'loja':        ['e-commerce', 'vendas', 'produtos', 'varejo', ...],
+    'serviço':     ['profissional', 'técnico', 'reparo', 'manutenção', ...],
+    'imóvel':      ['casa', 'apartamento', 'aluguel', 'escritório', ...],
+    'educação':    ['escola', 'universidade', 'curso', 'professor', ...],
+    'beleza':      ['salão', 'cabelo', 'manicure', 'estética', ...],
+    'fitness':     ['academia', 'musculação', 'yoga', 'pilates', ...],
+    'viagem':      ['hotel', 'pousada', 'turismo', 'hospedagem', ...],
+    'transporte':  ['táxi', 'uber', 'frete', 'logística', ...],
+}
+```
+
+Term resolution is exact-match on category key — no concatenation with the original input.
+
+---
+
+## Anti-Bot Evasion
+
+```python
+# Randomized delay between every request
+time.sleep(random.uniform(0.2, 0.8))
+
+# Realistic browser fingerprint
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36
+
+# Headless Chrome flags
+--disable-blink-features=AutomationControlled
+--no-sandbox
+--disable-dev-shm-usage
+--mute-audio
+excludeSwitches: ["enable-logging"]
+```
+
+---
+
+## Output Schema
+
+`contatos/merged.csv`:
+
 ```csv
 numero,nome,email,fonte,data
-5512999999999,João Silva,joao@email.com,Google,2024-01-15
-5511988888888,Maria Santos,maria@email.com,OLX,2024-01-15
+5512999999999,Name,email@domain.com,Google Maps,2025-01-15
+5511988888888,Name,,OLX,2025-01-15
 ```
 
-## 🔗 Integração com WhatsApp
+- Persists across sessions (append-only, no overwrites)
+- Deduplicated by phone number on load
+- Real-time flush on every new contact found
+
+---
+
+## Configuration
+
+```python
+Scraper(
+    delay_min=0.2,   # Minimum delay between requests (seconds)
+    delay_max=0.8,   # Maximum delay
+    headless=True    # False to watch browser in real-time
+)
+```
+
+---
+
+## Integration with Communication Engine
 
 ```bash
-# Terminal 1: Deixar scraper rodando
+# Terminal 1 — run collector
 python3 scraper_all.py
-# O que procurar: seu termo
+# Input: restaurante
 
-# Terminal 2: Usar contatos
+# Terminal 2 — run sender (while collector is running)
 python3 app.py
-# Escolha [2] Ler de arquivo
-# merged.csv
+# [2] Read from file → contatos/merged.csv
 ```
 
-## 📝 Exemplo Completo
+The sender reads `merged.csv` at startup — any contacts collected before execution are included automatically.
 
-```bash
-$ python3 scraper_all.py
-O que procurar: restaurante
+---
 
-🔍 Buscando: restaurante
-🌐 Fontes: 50+
-📁 Arquivo: contatos/merged.csv
-⏳ Iniciando busca brutal...
+## Graceful Shutdown
 
-Pressione Ctrl+C para parar imediatamente
+`Ctrl+C` triggers `SIGINT` handler:
 
-🔄 Iteração 1 - 14:30:22
-📊 Total: 0 contatos
-📚 Termos: 10 (+0)
-
-  Google: +5 | Google Maps: +12 | Yellow Pages: +8 | Yelp: +6 | SuperPages: +4 | MerchantCircle: +3 | Angie's List: +2 | Thumbtack: +1 | ServiceMaster: +0 | HomeAdvisor: +2 | Houzz: +1 | Zillow: +0 | Realtor: +3 | Trulia: +2 | Apartments: +0 | Craigslist: +4 | Letgo: +1 | Mercado Livre: +2 | OLX: +5 | Classificados: +3 | Vivanuncios: +2 | Anúncios: +1 | Skokka: +0 | Garotas: +0 | Acompanhantes: +0 | LinkedIn: +1 | LinkedIn Companies: +2 | Twitter: +3 | Reddit: +1 | Quora: +0 | Medium: +0 | GitHub: +0 | Stack Overflow: +0 | Dev.to: +0 | Hashnode: +0 | Pinterest: +2 | Flickr: +1 | Imgur: +0 | Tumblr: +1 | WeHeartIt: +0 | Behance: +0 | Dribbble: +0 | DeviantArt: +0 | ArtStation: +0 | Vimeo: +1 | Dailymotion: +0 | Twitch: +0 | Rumble: +0 | Odysee: +0 | BitChute: +0 | Minds: +0 | Mastodon: +0
-
-  Google: +4 | Google Maps: +10 | Yellow Pages: +6 | Yelp: +5 | ...
-
-🔄 Iteração 2 - 14:35:45
-📊 Total: 250 contatos
-📚 Termos: 12 (+2)
-
-  Google: +3 | Google Maps: +8 | Yellow Pages: +5 | Yelp: +4 | ...
-  Google: +2 | Google Maps: +6 | Yellow Pages: +4 | Yelp: +3 | ...
-
-🔄 Iteração 3 - 14:41:10
-📊 Total: 450 contatos
-📚 Termos: 14 (+2)
-
-  Google: +2 | Google Maps: +5 | Yellow Pages: +3 | Yelp: +2 | ...
-  Google: +1 | Google Maps: +4 | Yellow Pages: +2 | Yelp: +2 | ...
-  Google: +1 | Google Maps: +3 | Yellow Pages: +2 | Yelp: +1 | ...
+```python
+def signal_handler(sig, frame):
+    global STOP_FLAG
+    STOP_FLAG = True
+    sys.exit(0)
 ```
 
-Pressione `Ctrl+C` para parar imediatamente.
-
-## ⚙️ Configuração
-
-Edite `scraper_all.py`:
-- `delay_min=0.2` - Delay mínimo (brutal)
-- `delay_max=0.8` - Delay máximo
-- `headless=True` - Sem interface gráfica
-
-## 🎯 Dicas
-
-- Deixe rodando enquanto trabalha
-- Quanto mais tempo, mais contatos
-- Termos crescem +2 a cada iteração
-- Pressione `Ctrl+C` para parar imediatamente
-- Arquivo atualiza em tempo real
-- Tente diferentes termos
-
-## 🚀 Fluxo Recomendado
-
-1. **Instalar**: `python3 install.py`
-2. **Deixar rodando**: `python3 scraper_all.py` (Terminal 1)
-3. **Usar contatos**: `python3 app.py` (Terminal 2)
-4. **Parar quando quiser**: `Ctrl+C` (parada imediata)
-
-## 📊 Cobertura
-
-- **50+ fontes** de coleta
-- **Crescimento dinâmico** de termos (+2 por iteração)
-- **Busca infinita** enquanto ativo
-- **Sem bloqueios** - Delays respeitosos
-- **Dentro da lei** - Sem violação de ToS
-- **Parada imediata** - Ctrl+C funciona
+All data already written to disk is preserved. No data loss on interrupt.
